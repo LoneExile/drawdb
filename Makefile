@@ -1,5 +1,5 @@
 APP=drawdb
-VERSION?=36900bc
+VERSION?=latest
 BUILD?=$(shell /bin/date +%Y%m%d%H%M%S)
 # linux/amd64, linux/arm64
 PLATFORM?=linux/arm64
