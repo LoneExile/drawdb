@@ -17,7 +17,7 @@ export default function TypesTab() {
           <Searchbar />
         </Col>
         <Col span={8}>
-          <Button icon={<IconPlus />} block onClick={() => addType(true)}>
+          <Button icon={<IconPlus />} block onClick={() => addType()}>
             Add type
           </Button>
         </Col>
@@ -60,6 +60,8 @@ export default function TypesTab() {
               ? `${selectedElement.id}`
               : ""
           }
+          keepDOM
+          lazyRender
           onChange={(id) =>
             setSelectedElement((prev) => ({
               ...prev,

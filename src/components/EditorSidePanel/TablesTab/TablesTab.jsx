@@ -17,7 +17,7 @@ export default function TablesTab() {
           <SearchBar tables={tables} />
         </Col>
         <Col span={8}>
-          <Button icon={<IconPlus />} block onClick={() => addTable(true)}>
+          <Button icon={<IconPlus />} block onClick={() => addTable()}>
             Add table
           </Button>
         </Col>
@@ -31,6 +31,8 @@ export default function TablesTab() {
               ? `${selectedElement.id}`
               : ""
           }
+          keepDOM
+          lazyRender
           onChange={(k) =>
             setSelectedElement((prev) => ({
               ...prev,
