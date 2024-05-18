@@ -5,12 +5,18 @@ import { en, english } from "./locales/en";
 import { zh, chinese } from "./locales/zh";
 import { es, spanish } from "./locales/es";
 import { da, danish } from "./locales/da";
+import { de, german } from "./locales/de";
+import { vi, vietnamese } from "./locales/vi";
+import { pt, portuguese } from "./locales/pt-br";
 
 export const languages = [
   english,
   chinese,
   danish,
   spanish,
+  german,
+  vietnamese,
+  portuguese
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 i18n
@@ -27,6 +33,9 @@ i18n
       zh,
       es,
       da,
+      de,
+      vi,
+      pt
     },
   });
 
