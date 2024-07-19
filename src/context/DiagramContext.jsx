@@ -1,15 +1,16 @@
 import { createContext, useState } from "react";
-import { Action, ObjectType, defaultBlue } from "../data/constants";
+import { Action, DB, ObjectType, defaultBlue } from "../data/constants";
 import useTransform from "../hooks/useTransform";
 import useUndoRedo from "../hooks/useUndoRedo";
 import useSelect from "../hooks/useSelect";
 import { Toast } from "@douyinfe/semi-ui";
 import { useTranslation } from "react-i18next";
 
-export const TablesContext = createContext(null);
+export const DiagramContext = createContext(null);
 
-export default function TablesContextProvider({ children }) {
+export default function DiagramContextProvider({ children }) {
   const { t } = useTranslation();
+  const [database, setDatabase] = useState(DB.GENERIC);
   const [tables, setTables] = useState([]);
   const [relationships, setRelationships] = useState([]);
   const { transform } = useTransform();
@@ -29,12 +30,12 @@ export default function TablesContextProvider({ children }) {
         {
           id: prev.length,
           name: `table_${prev.length}`,
-          x: -transform.pan.x,
-          y: -transform.pan.y,
+          x: transform.pan.x,
+          y: transform.pan.y,
           fields: [
             {
               name: "id",
-              type: "INT",
+              type: database === DB.GENERIC ? "INT" : "INTEGER",
               default: "",
               check: "",
               primary: true,
@@ -80,7 +81,7 @@ export default function TablesContextProvider({ children }) {
           action: Action.DELETE,
           element: ObjectType.TABLE,
           data: { table: tables[id], relationship: rels },
-          message: t("delete_table", { tableName: tables[id] }),
+          message: t("delete_table", { tableName: tables[id].name }),
         },
       ]);
       setRedoStack([]);
@@ -248,7 +249,7 @@ export default function TablesContextProvider({ children }) {
   };
 
   return (
-    <TablesContext.Provider
+    <DiagramContext.Provider
       value={{
         tables,
         setTables,
@@ -261,9 +262,11 @@ export default function TablesContextProvider({ children }) {
         setRelationships,
         addRelationship,
         deleteRelationship,
+        database,
+        setDatabase,
       }}
     >
       {children}
-    </TablesContext.Provider>
+    </DiagramContext.Provider>
   );
 }
