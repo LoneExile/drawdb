@@ -22,8 +22,8 @@ import {
   useLayout,
 } from "../../hooks";
 import { useTranslation } from "react-i18next";
-import { diagram } from "../../data/heroDiagram";
 import { useEventListener } from "usehooks-ts";
+import { areFieldsCompatible } from "../../utils/utils";
 
 export default function Canvas() {
   const { t } = useTranslation();
@@ -35,7 +35,8 @@ export default function Canvas() {
     pointer,
   } = canvasContextValue;
 
-  const { tables, updateTable, relationships, addRelationship } = useDiagram();
+  const { tables, updateTable, relationships, addRelationship, database } =
+    useDiagram();
   const { areas, updateArea } = useAreas();
   const { notes, updateNote } = useNotes();
   const { layout } = useLayout();
@@ -86,6 +87,8 @@ export default function Canvas() {
    * @param {ObjectType[keyof ObjectType]} type
    */
   const handlePointerDownOnElement = (e, id, type) => {
+    if (selectedElement.open && !layout.sidebar) return;
+
     if (!e.isPrimary) return;
 
     if (type === ObjectType.TABLE) {
@@ -137,6 +140,8 @@ export default function Canvas() {
    * @param {PointerEvent} e
    */
   const handlePointerMove = (e) => {
+    if (selectedElement.open && !layout.sidebar) return;
+
     if (!e.isPrimary) return;
 
     if (linking) {
@@ -225,6 +230,8 @@ export default function Canvas() {
    * @param {PointerEvent} e
    */
   const handlePointerDown = (e) => {
+    if (selectedElement.open && !layout.sidebar) return;
+
     if (!e.isPrimary) return;
 
     // don't pan if the sidesheet for editing a table is open
@@ -308,6 +315,8 @@ export default function Canvas() {
    * @param {PointerEvent} e
    */
   const handlePointerUp = (e) => {
+    if (selectedElement.open && !layout.sidebar) return;
+
     if (!e.isPrimary) return;
 
     if (coordsDidUpdate(dragging.element)) {
@@ -340,7 +349,7 @@ export default function Canvas() {
           redo: transform.pan,
           message: t("move_element", {
             coords: `(${transform?.pan.x}, ${transform?.pan.y})`,
-            name: diagram,
+            name: "diagram",
           }),
         },
       ]);
@@ -400,8 +409,11 @@ export default function Canvas() {
     if (hoveredTable.tableId < 0) return;
     if (hoveredTable.field < 0) return;
     if (
-      tables[linkingLine.startTableId].fields[linkingLine.startFieldId].type !==
-      tables[hoveredTable.tableId].fields[hoveredTable.field].type
+      !areFieldsCompatible(
+        database,
+        tables[linkingLine.startTableId].fields[linkingLine.startFieldId],
+        tables[hoveredTable.tableId].fields[hoveredTable.field],
+      )
     ) {
       Toast.info(t("cannot_connect"));
       return;
@@ -520,6 +532,7 @@ export default function Canvas() {
           </svg>
         )}
         <svg
+          id="diagram"
           ref={canvasRef}
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}

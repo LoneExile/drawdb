@@ -23,7 +23,7 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
   const tables = [];
   const relationships = [];
 
-  ast.forEach((e) => {
+  const parseSingleStatement = (e) => {
     if (e.type === "create") {
       if (e.keyword === "table") {
         const table = {};
@@ -47,7 +47,7 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
             if (d.definition.expr && d.definition.expr.type === "expr_list") {
               field.values = d.definition.expr.value.map((v) => v.value);
             }
-            field.comment = "";
+            field.comment = d.comment ? d.comment.value.value : "";
             field.unique = false;
             if (d.unique) field.unique = true;
             field.increment = false;
@@ -105,7 +105,7 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
                   }
                 });
               });
-            } else if (d.constraint_type === "FOREIGN KEY") {
+            } else if (d.constraint_type.toLowerCase() === "foreign key") {
               const relationship = {};
               const startTableId = table.id;
               const startTable = e.table[0].table;
@@ -119,7 +119,7 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
               const endFieldId = tables[endTableId].fields.findIndex(
                 (f) => f.name === endField,
               );
-              if (endField === -1) return;
+              if (endFieldId === -1) return;
 
               const startFieldId = table.fields.findIndex(
                 (f) => f.name === startField,
@@ -149,7 +149,13 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
 
               relationship.updateConstraint = updateConstraint;
               relationship.deleteConstraint = deleteConstraint;
-              relationship.cardinality = Cardinality.ONE_TO_ONE;
+
+              if (table.fields[startFieldId].unique) {
+                relationship.cardinality = Cardinality.ONE_TO_ONE;
+              } else {
+                relationship.cardinality = Cardinality.MANY_TO_ONE;
+              }
+
               relationships.push(relationship);
             }
           }
@@ -181,7 +187,7 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
       e.expr.forEach((expr) => {
         if (
           expr.action === "add" &&
-          expr.create_definitions.constraint_type === "FOREIGN KEY"
+          expr.create_definitions.constraint_type.toLowerCase() === "foreign key"
         ) {
           const relationship = {};
           const startTable = e.table[0].table;
@@ -217,7 +223,7 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
           const endFieldId = tables[endTableId].fields.findIndex(
             (f) => f.name === endField,
           );
-          if (endField === -1) return;
+          if (endFieldId === -1) return;
 
           const startFieldId = tables[startTableId].fields.findIndex(
             (f) => f.name === startField,
@@ -231,14 +237,26 @@ export function fromMariaDB(ast, diagramDb = DB.GENERIC) {
           relationship.endFieldId = endFieldId;
           relationship.updateConstraint = updateConstraint;
           relationship.deleteConstraint = deleteConstraint;
-          relationship.cardinality = Cardinality.ONE_TO_ONE;
+
+          if (tables[startTableId].fields[startFieldId].unique) {
+            relationship.cardinality = Cardinality.ONE_TO_ONE;
+          } else {
+            relationship.cardinality = Cardinality.MANY_TO_ONE;
+          }
+
           relationships.push(relationship);
 
           relationships.forEach((r, i) => (r.id = i));
         }
       });
     }
-  });
+  };
+
+  if (Array.isArray(ast)) {
+    ast.forEach((e) => parseSingleStatement(e));
+  } else {
+    parseSingleStatement(ast);
+  }
 
   relationships.forEach((r, i) => (r.id = i));
 

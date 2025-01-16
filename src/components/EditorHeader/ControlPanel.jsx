@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import {
   IconCaretdown,
   IconChevronRight,
+  IconChevronLeft,
   IconChevronUp,
   IconChevronDown,
   IconSaveStroked,
   IconUndo,
   IconRedo,
   IconEdit,
+  IconShareStroked,
 } from "@douyinfe/semi-icons";
 import { Link, useNavigate } from "react-router-dom";
 import icon from "../../assets/icon_dark_64.png";
@@ -56,8 +58,9 @@ import {
   useNotes,
   useAreas,
   useEnums,
+  useFullscreen,
 } from "../../hooks";
-import { enterFullscreen } from "../../utils/fullscreen";
+import { enterFullscreen, exitFullscreen } from "../../utils/fullscreen";
 import { dataURItoBlob } from "../../utils/utils";
 import { IconAddArea, IconAddNote, IconAddTable } from "../../icons";
 import LayoutDropdown from "./LayoutDropdown";
@@ -66,6 +69,10 @@ import Modal from "./Modal/Modal";
 import { useTranslation } from "react-i18next";
 import { exportSQL } from "../../utils/exportSQL";
 import { databases } from "../../data/databases";
+import { jsonToMermaid } from "../../utils/exportAs/mermaid";
+import { isRtl } from "../../i18n/utils/rtl";
+import { jsonToDocumentation } from "../../utils/exportAs/documentation";
+import { IdContext } from "../Workspace";
 
 export default function ControlPanel({
   diagramId,
@@ -76,7 +83,6 @@ export default function ControlPanel({
 }) {
   const [modal, setModal] = useState(MODAL.NONE);
   const [sidesheet, setSidesheet] = useState(SIDESHEET.NONE);
-  const [prevTitle, setPrevTitle] = useState(title);
   const [showEditName, setShowEditName] = useState(false);
   const [importDb, setImportDb] = useState("");
   const [exportData, setExportData] = useState({
@@ -108,7 +114,8 @@ export default function ControlPanel({
   const { undoStack, redoStack, setUndoStack, setRedoStack } = useUndoRedo();
   const { selectedElement, setSelectedElement } = useSelect();
   const { transform, setTransform } = useTransform();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { setGistId } = useContext(IdContext);
   const navigate = useNavigate();
 
   const invertLayout = (component) =>
@@ -298,9 +305,23 @@ export default function ControlPanel({
           );
         } else if (a.component === "self") {
           updateType(a.tid, a.undo);
+          if (a.updatedFields) {
+            if (a.undo.name) {
+              a.updatedFields.forEach((x) =>
+                updateField(x.tid, x.fid, { type: a.undo.name.toUpperCase() }),
+              );
+            }
+          }
         }
       } else if (a.element === ObjectType.ENUM) {
         updateEnum(a.id, a.undo);
+        if (a.updatedFields) {
+          if (a.undo.name) {
+            a.updatedFields.forEach((x) =>
+              updateField(x.tid, x.fid, { type: a.undo.name.toUpperCase() }),
+            );
+          }
+        }
       }
       setRedoStack((prev) => [...prev, a]);
     } else if (a.action === Action.PAN) {
@@ -460,9 +481,23 @@ export default function ControlPanel({
           });
         } else if (a.component === "self") {
           updateType(a.tid, a.redo);
+          if (a.updatedFields) {
+            if (a.redo.name) {
+              a.updatedFields.forEach((x) =>
+                updateField(x.tid, x.fid, { type: a.redo.name.toUpperCase() }),
+              );
+            }
+          }
         }
       } else if (a.element === ObjectType.ENUM) {
         updateEnum(a.id, a.redo);
+        if (a.updatedFields) {
+          if (a.redo.name) {
+            a.updatedFields.forEach((x) =>
+              updateField(x.tid, x.fid, { type: a.redo.name.toUpperCase() }),
+            );
+          }
+        }
       }
       setUndoStack((prev) => [...prev, a]);
     } else if (a.action === Action.PAN) {
@@ -682,6 +717,7 @@ export default function ControlPanel({
   const save = () => setSaveState(State.SAVING);
   const open = () => setModal(MODAL.OPEN);
   const saveDiagramAs = () => setModal(MODAL.SAVEAS);
+  const fullscreen = useFullscreen();
 
   const menu = {
     file: {
@@ -728,7 +764,6 @@ export default function ControlPanel({
       rename: {
         function: () => {
           setModal(MODAL.RENAME);
-          setPrevTitle(title);
         },
       },
       delete_diagram: {
@@ -750,6 +785,7 @@ export default function ControlPanel({
               setEnums([]);
               setUndoStack([]);
               setRedoStack([]);
+              setGistId("");
             })
             .catch(() => Toast.error(t("oops_smth_went_wrong")));
         },
@@ -1012,6 +1048,44 @@ export default function ControlPanel({
               saveAs(blob, `${exportData.filename}.ddb`);
             },
           },
+          {
+            MERMAID: () => {
+              setModal(MODAL.CODE);
+              const result = jsonToMermaid({
+                tables: tables,
+                relationships: relationships,
+                notes: notes,
+                subjectAreas: areas,
+                database: database,
+                title: title,
+              });
+              setExportData((prev) => ({
+                ...prev,
+                data: result,
+                extension: "md",
+              }));
+            },
+          },
+          {
+            readme: () => {
+              setModal(MODAL.CODE);
+              const result = jsonToDocumentation({
+                tables: tables,
+                relationships: relationships,
+                notes: notes,
+                subjectAreas: areas,
+                database: database,
+                title: title,
+                ...(databases[database].hasTypes && { types: types }),
+                ...(databases[database].hasEnums && { enums: enums }),
+              });
+              setExportData((prev) => ({
+                ...prev,
+                data: result,
+                extension: "md",
+              }));
+            },
+          },
         ],
         function: () => {},
       },
@@ -1197,14 +1271,19 @@ export default function ControlPanel({
       },
       zoom_in: {
         function: zoomIn,
-        shortcut: "Ctrl+Up/Wheel",
+        shortcut: "Ctrl+(Up/Wheel)",
       },
       zoom_out: {
         function: zoomOut,
-        shortcut: "Ctrl+Down/Wheel",
+        shortcut: "Ctrl+(Down/Wheel)",
       },
       fullscreen: {
-        function: enterFullscreen,
+        state: fullscreen ? (
+          <i className="bi bi-toggle-on" />
+        ) : (
+          <i className="bi bi-toggle-off" />
+        ),
+        function: fullscreen ? exitFullscreen : enterFullscreen,
       },
     },
     settings: {
@@ -1301,18 +1380,36 @@ export default function ControlPanel({
 
   return (
     <>
-      {layout.header && header()}
-      {layout.toolbar && toolbar()}
+      <div>
+        {layout.header && (
+          <div
+            className="flex justify-between items-center me-7"
+            style={isRtl(i18n.language) ? { direction: "rtl" } : {}}
+          >
+            {header()}
+            {window.name.split(" ")[0] !== "t" && (
+              <Button
+                type="primary"
+                className="text-base me-2 pe-6 ps-5 py-[18px] rounded-md"
+                size="default"
+                icon={<IconShareStroked />}
+                onClick={() => setModal(MODAL.SHARE)}
+              >
+                {t("share")}
+              </Button>
+            )}
+          </div>
+        )}
+        {layout.toolbar && toolbar()}
+      </div>
       <Modal
         modal={modal}
         exportData={exportData}
         setExportData={setExportData}
         title={title}
         setTitle={setTitle}
-        setPrevTitle={setPrevTitle}
         setDiagramId={setDiagramId}
         setModal={setModal}
-        prevTitle={prevTitle}
         importDb={importDb}
       />
       <Sidesheet
@@ -1324,15 +1421,20 @@ export default function ControlPanel({
 
   function toolbar() {
     return (
-      <div className="py-1.5 px-5 flex justify-between items-center rounded-xl my-1 sm:mx-1 xl:mx-6 select-none overflow-hidden toolbar-theme">
+      <div
+        className="py-1.5 px-5 flex justify-between items-center rounded-xl my-1 sm:mx-1 xl:mx-6 select-none overflow-hidden toolbar-theme"
+        style={isRtl(i18n.language) ? { direction: "rtl" } : {}}
+      >
         <div className="flex justify-start items-center">
           <LayoutDropdown />
           <Divider layout="vertical" margin="8px" />
           <Dropdown
             style={{ width: "240px" }}
-            position="bottomLeft"
+            position={isRtl(i18n.language) ? "bottomRight" : "bottomLeft"}
             render={
-              <Dropdown.Menu>
+              <Dropdown.Menu
+                style={isRtl(i18n.language) ? { direction: "rtl" } : {}}
+              >
                 <Dropdown.Item
                   onClick={fitWindow}
                   style={{ display: "flex", justifyContent: "space-between" }}
@@ -1505,6 +1607,8 @@ export default function ControlPanel({
         return t("saving");
       case State.ERROR:
         return t("failed_to_save");
+      case State.FAILED_TO_LOAD:
+        return t("failed_to_load");
       default:
         return "";
     }
@@ -1512,14 +1616,17 @@ export default function ControlPanel({
 
   function header() {
     return (
-      <nav className="flex justify-between pt-1 items-center whitespace-nowrap">
+      <nav
+        className="flex justify-between pt-1 items-center whitespace-nowrap"
+        style={isRtl(i18n.language) ? { direction: "rtl" } : {}}
+      >
         <div className="flex justify-start items-center">
           <Link to="/">
             <img
               width={54}
               src={icon}
               alt="logo"
-              className="ms-8 min-w-[54px]"
+              className="ms-7 min-w-[54px]"
             />
           </Link>
           <div className="ms-1 mt-1">
@@ -1558,7 +1665,10 @@ export default function ControlPanel({
                   <Dropdown
                     key={category}
                     position="bottomLeft"
-                    style={{ width: "240px" }}
+                    style={{
+                      width: "240px",
+                      direction: isRtl(i18n.language) ? "rtl" : "ltr",
+                    }}
                     render={
                       <Dropdown.Menu>
                         {Object.keys(menu[category]).map((item, index) => {
@@ -1592,7 +1702,12 @@ export default function ControlPanel({
                                   onClick={menu[category][item].function}
                                 >
                                   {t(item)}
-                                  <IconChevronRight />
+
+                                  {isRtl(i18n.language) ? (
+                                    <IconChevronLeft />
+                                  ) : (
+                                    <IconChevronRight />
+                                  )}
                                 </Dropdown.Item>
                               </Dropdown>
                             );

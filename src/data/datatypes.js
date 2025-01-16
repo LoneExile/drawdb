@@ -140,7 +140,7 @@ const defaultTypesBase = {
       }
       const content = field.default.split(" ");
       const date = content[0].split("-");
-      return parseInt(date[0]) >= 1970 && parseInt(date[0]) <= 2038;
+      return Number.parseInt(date[0]) >= 1970 && Number.parseInt(date[0]) <= 2038;
     },
     hasCheck: false,
     isSized: false,
@@ -168,7 +168,7 @@ const defaultTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1000 && parseInt(d[0]) <= 9999;
+      return Number.parseInt(d[0]) >= 1000 && Number.parseInt(d[0]) <= 9999;
     },
     hasCheck: false,
     isSized: false,
@@ -279,6 +279,7 @@ const mysqlTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    signed: true,
   },
   SMALLINT: {
     type: "SMALLINT",
@@ -289,6 +290,7 @@ const mysqlTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    signed: true,
   },
   MEDIUMINT: {
     type: "MEDIUMINT",
@@ -299,6 +301,7 @@ const mysqlTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    signed: true,
   },
   INTEGER: {
     type: "INTEGER",
@@ -309,6 +312,7 @@ const mysqlTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    signed: true,
   },
   BIGINT: {
     type: "BIGINT",
@@ -319,6 +323,7 @@ const mysqlTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    signed: true,
   },
   DECIMAL: {
     type: "DECIMAL",
@@ -400,7 +405,7 @@ const mysqlTypesBase = {
       }
       const content = field.default.split(" ");
       const date = content[0].split("-");
-      return parseInt(date[0]) >= 1970 && parseInt(date[0]) <= 2038;
+      return Number.parseInt(date[0]) >= 1970 && Number.parseInt(date[0]) <= 2038;
     },
     hasCheck: false,
     isSized: false,
@@ -428,7 +433,7 @@ const mysqlTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1000 && parseInt(d[0]) <= 9999;
+      return Number.parseInt(d[0]) >= 1000 && Number.parseInt(d[0]) <= 9999;
     },
     hasCheck: false,
     isSized: false,
@@ -698,6 +703,7 @@ const postgresTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    compatibleWith: ["SMALLSERIAL", "SERIAL", "BIGSERIAL", "INTEGER", "BIGINT"],
   },
   INTEGER: {
     type: "INTEGER",
@@ -708,6 +714,13 @@ const postgresTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    compatibleWith: [
+      "SMALLSERIAL",
+      "SERIAL",
+      "BIGSERIAL",
+      "SMALLINT",
+      "BIGINT",
+    ],
   },
   BIGINT: {
     type: "BIGINT",
@@ -718,6 +731,13 @@ const postgresTypesBase = {
     isSized: false,
     hasPrecision: false,
     canIncrement: true,
+    compatibleWith: [
+      "SMALLSERIAL",
+      "SERIAL",
+      "BIGSERIAL",
+      "INTEGER",
+      "SMALLINT",
+    ],
   },
   DECIMAL: {
     type: "DECIMAL",
@@ -763,6 +783,7 @@ const postgresTypesBase = {
     hasCheck: true,
     isSized: false,
     hasPrecision: false,
+    compatibleWith: ["INTEGER", "SERIAL", "BIGSERIAL", "SMALLINT", "BIGINT"],
   },
   SERIAL: {
     type: "SERIAL",
@@ -772,6 +793,13 @@ const postgresTypesBase = {
     hasCheck: true,
     isSized: false,
     hasPrecision: false,
+    compatibleWith: [
+      "INTEGER",
+      "SMALLSERIAL",
+      "BIGSERIAL",
+      "SMALLINT",
+      "BIGINT",
+    ],
   },
   BIGSERIAL: {
     type: "BIGSERIAL",
@@ -781,6 +809,7 @@ const postgresTypesBase = {
     hasCheck: true,
     isSized: false,
     hasPrecision: false,
+    compatibleWith: ["INTEGER", "SERIAL", "SMALLSERIAL", "SMALLINT", "BIGINT"],
   },
   MONEY: {
     type: "MONEY",
@@ -828,9 +857,8 @@ const postgresTypesBase = {
       return field.default.length <= field.size;
     },
     hasCheck: true,
-    isSized: true,
+    isSized: false,
     hasPrecision: false,
-    defaultSize: 65535,
     hasQuotes: true,
   },
   BYTEA: {
@@ -847,7 +875,19 @@ const postgresTypesBase = {
   DATE: {
     type: "DATE",
     checkDefault: (field) => {
-      return /^\d{4}-\d{2}-\d{2}$/.test(field.default);
+      const specialValues = [
+        "epoch",
+        "infinity",
+        "-infinity",
+        "now",
+        "today",
+        "tomorrow",
+        "yesterday",
+      ];
+      return (
+        /^\d{4}-\d{2}-\d{2}$/.test(field.default) ||
+        specialValues.includes(field.default.toLowerCase())
+      );
     },
     hasCheck: false,
     isSized: false,
@@ -857,7 +897,25 @@ const postgresTypesBase = {
   TIME: {
     type: "TIME",
     checkDefault: (field) => {
-      return /^(?:[01]?\d|2[0-3]):[0-5]?\d:[0-5]?\d$/.test(field.default);
+      const specialValues = ["now", "allballs"];
+      return (
+        /^(?:[01]?\d|2[0-3]):[0-5]?\d:[0-5]?\d$/.test(field.default) ||
+        specialValues.includes(field.default.toLowerCase())
+      );
+    },
+    hasCheck: false,
+    isSized: false,
+    hasPrecision: false,
+    hasQuotes: true,
+  },
+  TIMETZ: {
+    type: "TIMETZ",
+    checkDefault: (field) => {
+      const specialValues = ["now", "allballs"];
+      return (
+        /^(?:[01]?\d|2[0-3]):[0-5]?\d:[0-5]?\d([+-]\d{2}:\d{2})?$/.test(field.default) ||
+        specialValues.includes(field.default.toLowerCase())
+      );
     },
     hasCheck: false,
     isSized: false,
@@ -867,15 +925,23 @@ const postgresTypesBase = {
   TIMESTAMP: {
     type: "TIMESTAMP",
     checkDefault: (field) => {
-      if (field.default.toUpperCase() === "CURRENT_TIMESTAMP") {
-        return true;
-      }
-      if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(field.default)) {
-        return false;
-      }
       const content = field.default.split(" ");
       const date = content[0].split("-");
-      return parseInt(date[0]) >= 1970 && parseInt(date[0]) <= 2038;
+      const specialValues = [
+        "epoch",
+        "infinity",
+        "-infinity",
+        "now",
+        "today",
+        "tomorrow",
+        "yesterday",
+        "current_timestamp",
+      ];
+      return (
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(field.default) ||
+        (Number.parseInt(date[0]) >= 1970 && Number.parseInt(date[0]) <= 2038) ||
+        specialValues.includes(field.default.toLowerCase())
+      );
     },
     hasCheck: false,
     isSized: false,
@@ -885,11 +951,20 @@ const postgresTypesBase = {
   TIMESTAMPTZ: {
     type: "TIMESTAMPTZ",
     checkDefault: (field) => {
-      if (field.default.toUpperCase() === "CURRENT_TIMESTAMP") {
-        return true;
-      }
-      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2})?$/.test(
-        field.default,
+      const specialValues = [
+        "epoch",
+        "infinity",
+        "-infinity",
+        "now",
+        "today",
+        "tomorrow",
+        "yesterday",
+        "current_timestamp",
+      ];
+      return (
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2})?$/.test(
+          field.default,
+        ) || specialValues.includes(field.default.toLowerCase())
       );
     },
     hasCheck: false,
@@ -1032,6 +1107,62 @@ const postgresTypesBase = {
     hasPrecision: false,
     defaultSize: 1,
     hasQuotes: false,
+  },
+  VECTOR: {
+    type: "VECTOR",
+    checkDefault: (field) => {
+      let elements;
+      let elementsStr = field.default;
+      try {
+        if (strHasQuotes(field.default)) {
+          elementsStr = field.default.slice(1, -1);
+        }
+        elements = JSON.parse(elementsStr);
+        return Array.isArray(elements) && elements.length === field.size && elements.every(Number.isFinite);
+      } catch (e) {
+        return false;
+      }
+    },
+    hasCheck: true,
+    isSized: true,
+    hasPrecision: false,
+    hasQuotes: true,
+  },
+  HALFVEC:{
+    type: "HALFVEC",
+    checkDefault: (field) => {
+      let elements;
+      let elementsStr = field.default;
+      try {
+        if (strHasQuotes(field.default)) {
+          elementsStr = field.default.slice(1, -1);
+        }
+        elements = JSON.parse(elementsStr);
+        return Array.isArray(elements) && elements.length === field.size && elements.every(Number.isFinite);
+      } catch (e) {
+        return false;
+      }
+    },
+    hasCheck: true,
+    isSized: true,
+    hasPrecision: false,
+    hasQuotes: true,
+  },
+  SPARSEVEC: {
+    type: "SPARSEVEC",
+    checkDefault: (field) => {
+      let elementsStr = field.default;
+      if (strHasQuotes(field.default)) {
+        elementsStr = field.default.slice(1, -1);
+      }
+      const lengthStr = elementsStr.split('/')[1]
+      const length = Number.parseInt(lengthStr)
+      return length === field.size
+    },
+    hasCheck: true,
+    isSized: true,
+    hasPrecision: false,
+    hasQuotes: true,
   },
   TSVECTOR: {
     type: "TSVECTOR",
@@ -1189,7 +1320,7 @@ const sqliteTypesBase = {
       }
       const content = field.default.split(" ");
       const date = content[0].split("-");
-      return parseInt(date[0]) >= 1970 && parseInt(date[0]) <= 2038;
+      return Number.parseInt(date[0]) >= 1970 && Number.parseInt(date[0]) <= 2038;
     },
     hasCheck: false,
     isSized: false,
@@ -1217,7 +1348,7 @@ const sqliteTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1000 && parseInt(d[0]) <= 9999;
+      return Number.parseInt(d[0]) >= 1000 && Number.parseInt(d[0]) <= 9999;
     },
     hasCheck: false,
     isSized: false,
@@ -1364,7 +1495,7 @@ const mssqlTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1000 && parseInt(d[0]) <= 9999;
+      return Number.parseInt(d[0]) >= 1000 && Number.parseInt(d[0]) <= 9999;
     },
     hasCheck: false,
     isSized: false,
@@ -1382,7 +1513,7 @@ const mssqlTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1000 && parseInt(d[0]) <= 9999;
+      return Number.parseInt(d[0]) >= 1000 && Number.parseInt(d[0]) <= 9999;
     },
     hasCheck: false,
     isSized: false,
@@ -1404,7 +1535,7 @@ const mssqlTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1000 && parseInt(d[0]) <= 9999;
+      return Number.parseInt(d[0]) >= 1000 && Number.parseInt(d[0]) <= 9999;
     },
     hasCheck: false,
     isSized: false,
@@ -1422,7 +1553,7 @@ const mssqlTypesBase = {
       }
       const c = field.default.split(" ");
       const d = c[0].split("-");
-      return parseInt(d[0]) >= 1900 && parseInt(d[0]) <= 2079;
+      return Number.parseInt(d[0]) >= 1900 && Number.parseInt(d[0]) <= 2079;
     },
     hasCheck: false,
     isSized: false,
@@ -1450,7 +1581,7 @@ const mssqlTypesBase = {
       }
       const content = field.default.split(" ");
       const date = content[0].split("-");
-      return parseInt(date[0]) >= 1970 && parseInt(date[0]) <= 2038;
+      return Number.parseInt(date[0]) >= 1970 && Number.parseInt(date[0]) <= 2038;
     },
     hasCheck: false,
     isSized: false,
